@@ -33,6 +33,7 @@ unsigned short	cp;    //previous compressed short
 int 		mdata; //flag for more data
 int 		indict;//flag for if pc is in dictionary
 int 		lp;    //current length of p
+int		lx;    //current length of x
 
 //Wrong Argument #
 if (argc != 3){
@@ -41,18 +42,20 @@ if (argc != 3){
 }
 
 
-//initialize dictionary--------------------
-ldict = 0;
-for (i = 0; i < 256; i++){
-	dict[i] = (unsigned char *)calloc(2,1);
-	sprintf(dict[i], "%c", i);
-	ldict++;
-}
+
 
 
 // COMPRESSES **************************************************************************************
 if (strcmp(argv[2],"c")==0){
 	unsigned char *data;
+	
+	//initialize dictionary--------------------
+	ldict = 0;
+	for (i = 0; i < 256; i++){
+		dict[i] = (unsigned char *)calloc(2,1);
+		sprintf(dict[i], "%c", i);
+		ldict++;
+	}
 
 
 	//Opens file to read from
@@ -103,7 +106,7 @@ if (strcmp(argv[2],"c")==0){
 
 
 	//Adds p+c to dict
-	dict[ldict] = (unsigned char *)calloc(strlen(pc)+1,1);
+	dict[ldict] = (unsigned char *)calloc(lp+2,1);
 	memcpy(dict[ldict], pc, lp+1);
 	dict[ldict+1] = 0;
 	ldict++;
@@ -124,6 +127,7 @@ if (strcmp(argv[2],"c")==0){
 
 	//Begins Loop---------------------
 	while (mdata == 1){	
+
 		//resets indict flag
 		indict = 0;
 		//read C
@@ -196,9 +200,15 @@ if (strcmp(argv[2],"c")==0){
 
 
 // DECOMPRESSES ************************************************************************************
-else if (strcmp(argv[2],"d")==0){
+else if (strcmp(argv[2],"d")==0){\
 
-	unsigned short *data;
+	//initialize dictionary--------------------
+	ldict = 0;
+	for (i = 0; i < 256; i++){
+		dict[i] = (unsigned char *)calloc(100,1);
+		sprintf(dict[i], "%c", i);
+		ldict++;
+	}
 
 	//Opens file to decompress
 	cfpt = fopen(argv[1], "rb");
@@ -215,6 +225,7 @@ else if (strcmp(argv[2],"d")==0){
 	}
 	
 	//Gets data and length of data
+	unsigned short *data;
 	fseek(cfpt, 0L, SEEK_END);
 	ldata = ftell(cfpt);
 	rewind(cfpt);
@@ -225,31 +236,41 @@ else if (strcmp(argv[2],"d")==0){
 		//dict is already initialized
 	//Read C
 	cc = data[0];
+	
 	//Output pattern for C
-	fprintf(dfpt, "%s", dict[cc]);
-	//printf(".%d.\n", cc);
-	//printf("In Dict\n");
+	//fprintf(dfpt, "%s", dict[cc]);
+	fwrite(dict[cc],1,1,dfpt);
 	
 	//Begin Loop ------------------------
 	mdata = 1;
 	cdata = 1;
+
 	while (mdata == 1){
 		cp = cc;
 		cc = data[cdata];
+		//printf("cp: %d, cc: %d.\n", cp, cc);
 		//printf(".%d.\n", cc);
 		//c in dict
 		if (ldict > cc){
 			//printf("In Dict\n");
 			//output pattern for c
-			fprintf(dfpt, "%s", dict[cc]);//
+			//fprintf(dfpt, "%s", dict[cc]);
+			fwrite(dict[cc], strlen(dict[cc]), 1, dfpt);
+			
 			//let x = pattern for P
-			sprintf(x, "%s", dict[cp]);
+			//sprintf(x, "%s", dict[cp]);
+			memcpy(x, dict[cp], 100);
+			
 			//let y = first char of c
 			y = dict[cc][0];
 			//Add x+y to dict
 			dict[ldict] = (unsigned char *)calloc(100,1);
-			sprintf(dict[ldict], "%s%c", x,y);
+			//sprintf(dict[ldict], "%s%c", x,y);
+			memcpy(dict[ldict], x, strlen(x));
+			dict[ldict][strlen(x)] = y;
+			dict[ldict][strlen(x)+1] = 0;
 			ldict++;
+			//printf(" Is in: %d\n", ldict);
 		}
 		
 		
@@ -257,15 +278,25 @@ else if (strcmp(argv[2],"d")==0){
 		else{
 			//printf("Not in Dict\n");
 			//Let x = pattern for p
-			sprintf(x, "%s", dict[cp]);
+			//sprintf(x, "%s", dict[cp]);
+			memcpy(x, dict[cp], 100);
+			
 			//let z = first char of c
-			z = dict[cp][0]; //segfaults
+			z = dict[cp][0];
+			
 			//output x + z
-			fprintf(dfpt, "%s%c", x,z);
-			//Add x+y to dict
+			//fprintf(dfpt, "%s%c", x,z);
+			fwrite(x, strlen(x), 1, dfpt);
+			fwrite(&z, 1, 1, dfpt);
+			
+			//Add x+z to dict
 			dict[ldict] = (unsigned char *)calloc(100,1);
-			sprintf(dict[ldict], "%s%c", x,z); // doesnt work
+			//sprintf(dict[ldict], "%s%c", x,z); // doesnt work
+			memcpy(dict[ldict], x, strlen(x));
+			dict[ldict][strlen(x)] = z;
+			dict[ldict][strlen(x)+1] = 0;
 			ldict++;
+			//printf("Not in: %d\n", ldict);
 		}
 		//Checks if more data
 		if (cdata < ldata/2-1)
@@ -284,8 +315,8 @@ else{
 	exit(-1);
 }
 
+
 return 0;
 }
 
-//Prints Dictionary and index
-	//printf("\n"); for (i = 0; i < ldict; i++) printf("%s %d\n", dict[i], i);
+
