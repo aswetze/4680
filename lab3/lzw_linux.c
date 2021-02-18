@@ -32,6 +32,7 @@ unsigned short	cc;    //compressed short from cfpt
 unsigned short	cp;    //previous compressed short
 int 		mdata; //flag for more data
 int 		indict;//flag for if pc is in dictionary
+int 		lp;    //current length of p
 
 //Wrong Argument #
 if (argc != 3){
@@ -79,15 +80,23 @@ if (strcmp(argv[2],"c")==0){
 	
 
 	//First loop iteration--------------------
-	sprintf(p, "%.1s", data);
-	sprintf(c, "%.1s", data + 1);
-	sprintf(pc, "%s%s", p,c);
+	lp = 1;
+	//p gets data[0]
+	memcpy(p,data,lp);
+	p[lp] = 0;
+	//c gets data[1]
+	memcpy(c,data+1,1);
+	//pc gets p+c
+	memcpy(pc,p,lp);
+	memcpy(pc+lp,c,1);
+	pc[lp+1] = 0;
+	
+	
 	//p+c is not in dictionary (only roots)
 	//prints out code of p
 	for(i = 0; i < ldict; i++){
 		if (memcmp(p, dict[i], strlen(p)) == 0){
 			fwrite(&i,2,1,cfpt);
-			//fprintf(cfpt, "%d", (unsigned short)i);
 			i = ldict;
 		}
 	}
@@ -95,11 +104,14 @@ if (strcmp(argv[2],"c")==0){
 
 	//Adds p+c to dict
 	dict[ldict] = (unsigned char *)calloc(strlen(pc)+1,1);
-	sprintf(dict[ldict], "%s", pc);
+	memcpy(dict[ldict], pc, lp+1);
+	dict[ldict+1] = 0;
 	ldict++;
 	
 	//p = c
-	sprintf(p, "%s", c);
+	memcpy(p, c, 1);
+	p[1] = 0;
+	lp = 1;
 
 	//sets current move through data
 	cdata = 2;
@@ -115,23 +127,28 @@ if (strcmp(argv[2],"c")==0){
 		//resets indict flag
 		indict = 0;
 		//read C
-		sprintf(c, "%.1s", data+cdata);
+		memcpy(c, data+cdata, 1);
 		
 		//creates p+c
-		sprintf(pc, "%s%s", p,c);
+		memcpy(pc,p,lp);
+		memcpy(pc+lp,c,1);
+		pc[lp+1] = 0;
 		
 		//checks if pc is in dict
 		for(i = 0; i < ldict; i++){
 			//check if pc is equal to length of dictionary first
 			//p+c in dict? = yes
-			if (strlen(pc) == strlen(dict[i]))
-				if (memcmp(pc, dict[i], strlen(pc)) == 0 && strlen(p) < 100){
+			if (lp+1 == strlen(dict[i]))
+				if (memcmp(pc, dict[i], lp+1) == 0 && lp < 100){
 					indict = 1;
 				}
 		}
 		if (indict == 1 ){
 			//p = p+c
-			sprintf(p, "%s", pc);
+			memcpy(p,pc, lp+1);
+			p[lp+1] = 0;
+			lp++;
+			
 		}
 		
 		//p+c in dict? = no
@@ -139,18 +156,20 @@ if (strcmp(argv[2],"c")==0){
 			//prints out code for p
 			for(i = 0; i < ldict; i++){
 				//check if p is equal to length of dictionary first
-				if (strlen(p) == strlen(dict[i]))
-					if (memcmp(p, dict[i], strlen(p)) == 0){
+				if (lp == strlen(dict[i]))
+					if (memcmp(p, dict[i], lp) == 0){
 						fwrite(&i,2,1,cfpt);
 						i = ldict;
 					}
 			}
 			//adds pc to dict
 			dict[ldict] = (unsigned char *)calloc(100,1);
-			sprintf(dict[ldict], "%s", pc);
+			memcpy(dict[ldict], pc, lp+1);
+			dict[ldict+1] = 0;
 			ldict++;
 			//p = c
 			sprintf(p, "%s", c);
+			lp = 1;
 		}
 		
 		//Checks if there is more data
@@ -166,8 +185,8 @@ if (strcmp(argv[2],"c")==0){
 	//Output code for p and DONE
 	for(i = 0; i < ldict; i++){
 		//check if p is equal to length of dictionary first
-		if (strlen(p) == strlen(dict[i]))
-			if (memcmp(p, dict[i], strlen(p)) == 0){
+		if (lp == strlen(dict[i]))
+			if (memcmp(p, dict[i], lp) == 0){
 				fwrite(&i,2,1,cfpt);
 				i = ldict;
 			}
